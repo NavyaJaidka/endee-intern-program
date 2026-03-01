@@ -1,0 +1,3 @@
+[submodule "endee"]
+	path = endee
+	url = https://github.com/endee-io/endee.git
