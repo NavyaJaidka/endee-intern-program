@@ -12,10 +12,10 @@ requests==2.31.0
 httpx==0.26.0
 msgpack==1.0.7
 
-# Embeddings
+# Embeddings (CPU-only for Render/Low-resource environments)
 sentence-transformers==2.2.2
-torch==2.1.2
-torchvision==0.16.2
+torch==2.1.2 --extra-index-url https://download.pytorch.org/whl/cpu
+torchvision==0.16.2 --extra-index-url https://download.pytorch.org/whl/cpu
 numpy==1.26.3
 transformers==4.36.0
 

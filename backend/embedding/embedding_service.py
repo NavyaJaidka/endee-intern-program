@@ -21,8 +21,33 @@ logger = get_logger(__name__)
 
 # Lazy import to avoid loading model at import time
 _sentence_transformer = None
+_openai_embeddings = None
 _model_name = None
+_provider = None
 _device = None
+
+
+def get_openai_embeddings(model_name: Optional[str] = None):
+    """Get or initialize OpenAI embeddings."""
+    global _openai_embeddings, _model_name, _provider
+    
+    model_name = model_name or settings.embedding_model
+    
+    if _openai_embeddings is None or _model_name != model_name or _provider != "openai":
+        logger.info(f"Initializing OpenAI embeddings model: {model_name}")
+        
+        from langchain_openai import OpenAIEmbeddings
+        
+        _openai_embeddings = OpenAIEmbeddings(
+            api_key=settings.openai_api_key,
+            model=model_name
+        )
+        _model_name = model_name
+        _provider = "openai"
+        
+        logger.info(f"OpenAI embeddings ready")
+        
+    return _openai_embeddings
 
 
 def get_sentence_transformer(
@@ -31,22 +56,13 @@ def get_sentence_transformer(
 ):
     """
     Get or initialize the sentence-transformer model.
-    
-    Uses lazy loading to avoid importing heavy dependencies at module import time.
-    
-    Args:
-        model_name: Model name (default from settings)
-        device: Device to use (cpu or cuda)
-    
-    Returns:
-        SentenceTransformer model
     """
-    global _sentence_transformer, _model_name, _device
+    global _sentence_transformer, _model_name, _device, _provider
     
     model_name = model_name or settings.embedding_model
     device = device or settings.embedding_device
     
-    if _sentence_transformer is None or _model_name != model_name or _device != device:
+    if _sentence_transformer is None or _model_name != model_name or _device != device or _provider != "local":
         logger.info(f"Loading sentence-transformer model: {model_name} on {device}")
         
         from sentence_transformers import SentenceTransformer
@@ -57,6 +73,7 @@ def get_sentence_transformer(
         )
         _model_name = model_name
         _device = device
+        _provider = "local"
         
         logger.info(f"Model loaded successfully")
     
@@ -89,6 +106,7 @@ class EmbeddingService:
     
     def __init__(
         self,
+        provider: Optional[str] = None,
         model_name: Optional[str] = None,
         device: Optional[str] = None,
         batch_size: Optional[int] = None
@@ -97,10 +115,12 @@ class EmbeddingService:
         Initialize the embedding service.
         
         Args:
-            model_name: Sentence-transformer model name
+            provider: Embedding provider (local or openai)
+            model_name: Model name
             device: Device (cpu or cuda)
             batch_size: Batch size for processing
         """
+        self.provider = provider or settings.embedding_provider
         self.model_name = model_name or settings.embedding_model
         self.device = device or settings.embedding_device
         self.batch_size = batch_size or settings.embedding_batch_size
@@ -109,51 +129,47 @@ class EmbeddingService:
         self._model = None
         
         logger.info(
-            f"EmbeddingService initialized with model={self.model_name}, "
-            f"device={self.device}, batch_size={self.batch_size}"
+            f"EmbeddingService initialized with provider={self.provider}, "
+            f"model={self.model_name}, device={self.device}"
         )
     
     @property
     def model(self):
         """Get the model (lazy loading)."""
         if self._model is None:
-            self._model = get_sentence_transformer(self.model_name, self.device)
+            if self.provider == "openai":
+                self._model = get_openai_embeddings(self.model_name)
+            else:
+                self._model = get_sentence_transformer(self.model_name, self.device)
         return self._model
     
     def embed_text(self, text: str) -> List[float]:
         """
         Generate embedding for a single text.
-        
-        Args:
-            text: Input text
-        
-        Returns:
-            Embedding vector as list of floats
         """
-        embedding = self.model.encode(text, convert_to_numpy=True)
-        return embedding.tolist()
+        if self.provider == "openai":
+            return self.model.embed_query(text)
+        else:
+            embedding = self.model.encode(text, convert_to_numpy=True)
+            return embedding.tolist()
     
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """
         Generate embeddings for multiple texts.
-        
-        Args:
-            texts: List of input texts
-        
-        Returns:
-            List of embedding vectors
         """
         if not texts:
             return []
-        
-        embeddings = self.model.encode(
-            texts,
-            batch_size=self.batch_size,
-            show_progress_bar=len(texts) > 10,
-            convert_to_numpy=True
-        )
-        
-        return [emb.tolist() for emb in embeddings]
+            
+        if self.provider == "openai":
+            return self.model.embed_documents(texts)
+        else:
+            embeddings = self.model.encode(
+                texts,
+                batch_size=self.batch_size,
+                show_progress_bar=len(texts) > 10,
+                convert_to_numpy=True
+            )
+            return [emb.tolist() for emb in embeddings]
     
     def embed_query(self, query: str) -> List[float]:
         """

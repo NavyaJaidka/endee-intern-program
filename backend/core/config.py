@@ -40,8 +40,8 @@ class Settings(BaseSettings):
         description="Default index name in Endee"
     )
     endee_dimension: int = Field(
-        default=384,
-        description="Embedding dimension for vector storage"
+        default=1536,
+        description="Embedding dimension for vector storage (1536 for OpenAI)"
     )
     
     # LLM Configuration
@@ -87,13 +87,17 @@ class Settings(BaseSettings):
     )
     
     # Embedding Model
+    embedding_provider: str = Field(
+        default="openai",
+        description="Embedding provider: local or openai"
+    )
     embedding_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        description="Sentence-transformers model name"
+        default="text-embedding-3-small",
+        description="Model name (e.g., text-embedding-3-small or sentence-transformers name)"
     )
     embedding_device: str = Field(
         default="cpu",
-        description="Device for embeddings: cpu or cuda"
+        description="Device for local embeddings: cpu or cuda"
     )
     embedding_batch_size: int = Field(
         default=32,
