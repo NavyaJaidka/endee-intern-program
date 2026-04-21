@@ -13,9 +13,8 @@ httpx==0.26.0
 msgpack==1.0.7
 
 # Embeddings
-# (Note: sentence-transformers, torch, and torchvision removed for production lightweight build)
+# (Note: sentence-transformers, torch, torchvision, and transformers removed for production lightweight build)
 numpy==1.26.3
-transformers==4.36.0
 
 # Document Processing
 PyPDF2==3.0.1
