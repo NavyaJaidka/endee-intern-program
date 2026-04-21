@@ -65,17 +65,24 @@ def get_sentence_transformer(
     if _sentence_transformer is None or _model_name != model_name or _device != device or _provider != "local":
         logger.info(f"Loading sentence-transformer model: {model_name} on {device}")
         
-        from sentence_transformers import SentenceTransformer
-        
-        _sentence_transformer = SentenceTransformer(
-            model_name,
-            device=device
-        )
-        _model_name = model_name
-        _device = device
-        _provider = "local"
-        
-        logger.info(f"Model loaded successfully")
+        try:
+            from sentence_transformers import SentenceTransformer
+            
+            _sentence_transformer = SentenceTransformer(
+                model_name,
+                device=device
+            )
+            _model_name = model_name
+            _device = device
+            _provider = "local"
+            
+            logger.info(f"Model loaded successfully")
+        except ImportError:
+            logger.error("sentence-transformers not installed. Please install 'sentence-transformers' and 'torch' to use local embeddings.")
+            raise ImportError(
+                "Local embedding libraries (sentence-transformers/torch) are not installed. "
+                "Please install them or switch settings.embedding_provider to 'openai'."
+            )
     
     return _sentence_transformer
 
